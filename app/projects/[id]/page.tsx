@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { AddMemberModal } from "../../../components/add-member-modal"
 import { CreateTaskModal } from "../../../components/create-task-modal"
 import { NavHeader } from "../../../components/nav-header"
+import { TaskAttachmentsModal } from "../../../components/task-attachments-modal"
 import { TaskAuditLogsModal } from "../../../components/task-audit-logs-modal"
 import { TaskDependenciesModal } from "../../../components/task-dependencies-modal"
 import { canMoveToDone } from "../../../lib/policies"
@@ -54,6 +55,7 @@ export default function ProjectDetailPage() {
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false)
   const [selectedTaskForDeps, setSelectedTaskForDeps] = useState<Task | null>(null)
   const [selectedTaskForAudit, setSelectedTaskForAudit] = useState<Task | null>(null)
+  const [selectedTaskForAttachments, setSelectedTaskForAttachments] = useState<Task | null>(null)
   const [showMemberDrawer, setShowMemberDrawer] = useState(false)
   const isPM = user?.role === "PM"
 
@@ -325,7 +327,15 @@ export default function ProjectDetailPage() {
                               {t.department}
                             </span>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedTaskForAttachments(t)}
+                                className="text-[10px] font-medium text-slate-400 hover:text-indigo-300"
+                              >
+                                Files
+                              </button>
+                              <span className="text-slate-700">•</span>
                               <button
                                 type="button"
                                 onClick={() => setSelectedTaskForAudit(t)}
@@ -404,6 +414,12 @@ export default function ProjectDetailPage() {
         task={selectedTaskForAudit}
         isOpen={Boolean(selectedTaskForAudit)}
         onClose={() => setSelectedTaskForAudit(null)}
+      />
+
+      <TaskAttachmentsModal
+        task={selectedTaskForAttachments}
+        isOpen={Boolean(selectedTaskForAttachments)}
+        onClose={() => setSelectedTaskForAttachments(null)}
       />
     </div>
   )
