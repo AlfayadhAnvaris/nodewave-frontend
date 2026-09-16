@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { AddMemberModal } from "../../../components/add-member-modal"
 import { CreateTaskModal } from "../../../components/create-task-modal"
 import { NavHeader } from "../../../components/nav-header"
+import { TaskDependenciesModal } from "../../../components/task-dependencies-modal"
 import { canMoveToDone } from "../../../lib/policies"
 import { useAuthStore } from "../../../stores/auth.store"
 import { useProjectStore } from "../../../stores/project.store"
@@ -50,6 +51,7 @@ export default function ProjectDetailPage() {
 
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false)
+  const [selectedTaskForDeps, setSelectedTaskForDeps] = useState<Task | null>(null)
   const [showMemberDrawer, setShowMemberDrawer] = useState(false)
   const isPM = user?.role === "PM"
 
@@ -320,18 +322,13 @@ export default function ProjectDetailPage() {
                               {t.department}
                             </span>
 
-                            <div className="flex items-center gap-2">
-                              {t.assignee ? (
-                                <span
-                                  title={t.assignee.name}
-                                  className="text-[10px] font-medium text-slate-300 truncate max-w-[80px]"
-                                >
-                                  {t.assignee.name}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-slate-500 italic">Unassigned</span>
-                              )}
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTaskForDeps(t)}
+                              className="text-[10px] font-medium text-slate-400 hover:text-indigo-300 flex items-center gap-1"
+                            >
+                              <span>Dependencies</span>
+                            </button>
                           </div>
 
                           <div className="flex items-center justify-between pt-2">
@@ -380,6 +377,14 @@ export default function ProjectDetailPage() {
         members={members}
         isOpen={isCreateTaskModalOpen}
         onClose={() => setIsCreateTaskModalOpen(false)}
+      />
+
+      <TaskDependenciesModal
+        task={selectedTaskForDeps}
+        availableTasks={tasks}
+        isOpen={Boolean(selectedTaskForDeps)}
+        onClose={() => setSelectedTaskForDeps(null)}
+        onDependencyChanged={() => fetchProjectTasks(projectId)}
       />
     </div>
   )
