@@ -24,6 +24,8 @@ api.interceptors.response.use(
       localStorage.removeItem("token")
       localStorage.removeItem("user")
     }
+    const message = error.response?.data?.error || error.message || "An unexpected error occurred"
+    error.message = message
     return Promise.reject(error)
   },
 )
