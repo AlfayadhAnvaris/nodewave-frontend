@@ -26,3 +26,7 @@ export function canManageMembers(user: User | null): boolean {
 export function canDeleteTask(user: User | null): boolean {
   return user?.role === "PM"
 }
+
+export function canModifyTask(user: User | null): boolean {
+  return user?.role !== "CLIENT"
+}

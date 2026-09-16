@@ -89,6 +89,11 @@ export default function ProjectDetailPage() {
   }
 
   const handleStatusChange = async (task: Task, newStatus: TaskStatus) => {
+    if (user?.role === "CLIENT") {
+      alert("Client users are not permitted to modify task status.")
+      return
+    }
+
     if (newStatus === "DONE" && !canMoveToDone(user, task)) {
       alert("Product Managers are rejected from directly completing tasks. Only assigned executors can set status to DONE.")
       return
@@ -357,8 +362,9 @@ export default function ProjectDetailPage() {
                           <div className="flex items-center justify-between pt-2">
                             <select
                               value={t.status}
+                              disabled={user?.role === "CLIENT"}
                               onChange={(e) => handleStatusChange(t, e.target.value as TaskStatus)}
-                              className="text-[10px] bg-slate-800 text-slate-200 rounded px-2 py-1 border border-slate-700 focus:outline-none"
+                              className="text-[10px] bg-slate-800 text-slate-200 rounded px-2 py-1 border border-slate-700 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               <option value="TODO">TODO</option>
                               <option value="BLOCKED">BLOCKED</option>
