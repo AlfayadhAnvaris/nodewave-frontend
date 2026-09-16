@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import { AddMemberModal } from "../../../components/add-member-modal"
 import { CreateTaskModal } from "../../../components/create-task-modal"
 import { NavHeader } from "../../../components/nav-header"
+import { canMoveToDone } from "../../../lib/policies"
 import { useAuthStore } from "../../../stores/auth.store"
 import { useProjectStore } from "../../../stores/project.store"
 import { useTaskStore } from "../../../stores/task.store"
@@ -81,9 +82,14 @@ export default function ProjectDetailPage() {
     }
   }
 
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+  const handleStatusChange = async (task: Task, newStatus: TaskStatus) => {
+    if (newStatus === "DONE" && !canMoveToDone(user, task)) {
+      alert("Product Managers are rejected from directly completing tasks. Only assigned executors can set status to DONE.")
+      return
+    }
+
     try {
-      await updateTask(taskId, { status: newStatus })
+      await updateTask(task.id, { status: newStatus })
       await fetchProjectTasks(projectId)
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -331,13 +337,15 @@ export default function ProjectDetailPage() {
                           <div className="flex items-center justify-between pt-2">
                             <select
                               value={t.status}
-                              onChange={(e) => handleStatusChange(t.id, e.target.value as TaskStatus)}
+                              onChange={(e) => handleStatusChange(t, e.target.value as TaskStatus)}
                               className="text-[10px] bg-slate-800 text-slate-200 rounded px-2 py-1 border border-slate-700 focus:outline-none"
                             >
                               <option value="TODO">TODO</option>
                               <option value="BLOCKED">BLOCKED</option>
                               <option value="IN_PROGRESS">IN_PROGRESS</option>
-                              <option value="DONE">DONE</option>
+                              <option value="DONE" disabled={!canMoveToDone(user, t)}>
+                                DONE {!canMoveToDone(user, t) ? "(No PM)" : ""}
+                              </option>
                             </select>
 
                             {isPM && (
