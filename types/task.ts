@@ -23,3 +23,18 @@ export interface Task {
   updated_at: string
   assignee?: TaskAssignee | null
 }
+
+export interface TaskAuditLog {
+  id: string
+  task_id: string
+  user_id: string
+  changed_column: string
+  old_value: string | null
+  new_value: string | null
+  created_at: string
+  user: {
+    id: string
+    name: string
+    email: string
+  }
+}
