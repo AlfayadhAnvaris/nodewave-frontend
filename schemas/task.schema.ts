@@ -15,6 +15,7 @@ export const updateTaskSchema = z.object({
   department: z.enum(["PRODUCT", "UI_UX", "FRONTEND", "BACKEND", "CLIENT"]).optional(),
   status: z.enum(["TODO", "BLOCKED", "IN_PROGRESS", "DONE"]).optional(),
   clientVisible: z.boolean().optional(),
+  version: z.number().int().optional(),
 })
 
 export type CreateTaskFormData = z.infer<typeof createTaskSchema>

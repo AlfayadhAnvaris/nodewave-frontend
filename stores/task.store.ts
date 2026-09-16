@@ -87,7 +87,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
   updateTask: async (id: string, data: UpdateTaskFormData) => {
     try {
-      const res = await api.patch<Task>(`/tasks/${id}`, data)
+      const currentTask =
+        get().tasks.find((t) => t.id === id) ||
+        (get().selectedTask?.id === id ? get().selectedTask : null)
+      const payload = {
+        ...data,
+        version: data.version ?? currentTask?.version,
+      }
+      const res = await api.patch<Task>(`/tasks/${id}`, payload)
       const updated = res.data
       set((state) => ({
         tasks: state.tasks.map((t) => (t.id === id ? updated : t)),

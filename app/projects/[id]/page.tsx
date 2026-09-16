@@ -91,12 +91,13 @@ export default function ProjectDetailPage() {
     }
 
     try {
-      await updateTask(task.id, { status: newStatus })
+      await updateTask(task.id, { status: newStatus, version: task.version })
       await fetchProjectTasks(projectId)
     } catch (err: unknown) {
       if (err instanceof Error) {
         alert(err.message)
       }
+      await fetchProjectTasks(projectId)
     }
   }
 
