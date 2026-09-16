@@ -1,10 +1,12 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
+import { api } from "../lib/api"
 import { type AddMemberFormData, addMemberSchema } from "../schemas/project.schema"
 import { useProjectStore } from "../stores/project.store"
+import type { User } from "../types/auth"
 
 interface Props {
   projectId: string
@@ -14,17 +16,34 @@ interface Props {
 
 export function AddMemberModal({ projectId, isOpen, onClose }: Props) {
   const { addMember } = useProjectStore()
+  const [companyUsers, setCompanyUsers] = useState<User[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const {
     register,
     handleSubmit,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<AddMemberFormData>({
     resolver: zodResolver(addMemberSchema),
   })
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await api.get<User[]>("/auth/company-users")
+      setCompanyUsers(res.data)
+    } catch (_err) {
+      setCompanyUsers([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchUsers()
+    }
+  }, [isOpen, fetchUsers])
 
   if (!isOpen) return null
 
@@ -67,6 +86,26 @@ export function AddMemberModal({ projectId, isOpen, onClose }: Props) {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
+          {companyUsers.length > 0 && (
+            <div>
+              <label htmlFor="company-users-select" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                Select Company User
+              </label>
+              <select
+                id="company-users-select"
+                onChange={(e) => setValue("userId", e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+              >
+                <option value="">-- Choose User --</option>
+                {companyUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.role} - {u.department})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label htmlFor="member-user-id" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
               User ID (UUID)
@@ -76,7 +115,7 @@ export function AddMemberModal({ projectId, isOpen, onClose }: Props) {
               type="text"
               {...register("userId")}
               className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              placeholder="Paste user UUID here..."
+              placeholder="Paste user UUID or select above..."
             />
             {errors.userId && <p className="mt-1 text-xs text-red-400">{errors.userId.message}</p>}
           </div>
