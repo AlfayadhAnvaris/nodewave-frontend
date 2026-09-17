@@ -1,7 +1,7 @@
 import axios from "axios"
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BE_URL || "http://localhost:3000",
+  baseURL: process.env.NEXT_PUBLIC_BE_URL || "https://nodewave-backend-k79c.onrender.com",
   headers: {
     "Content-Type": "application/json",
   },
