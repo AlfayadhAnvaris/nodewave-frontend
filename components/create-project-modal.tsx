@@ -1,133 +1,101 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { type CreateProjectFormData, createProjectSchema } from "../schemas/project.schema"
 import { useProjectStore } from "../stores/project.store"
+import { useToastStore } from "../stores/toast.store"
 
-interface Props {
+interface CreateProjectModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
-export function CreateProjectModal({ isOpen, onClose }: Props) {
-  const { createProject } = useProjectStore()
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CreateProjectFormData>({
-    resolver: zodResolver(createProjectSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      status: "ACTIVE",
-    },
-  })
+export function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps) {
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const { createProject, isLoading, error } = useProjectStore()
+  const { addToast } = useToastStore()
 
   if (!isOpen) return null
 
-  const onSubmit = async (data: CreateProjectFormData) => {
-    setIsSubmitting(true)
-    setErrorMessage(null)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+
     try {
-      await createProject(data)
-      reset()
+      await createProject({ name: name.trim(), description: description.trim() })
+      addToast({ title: "Project Created", message: `Project "${name}" was created successfully.`, type: "success" })
+      setName("")
+      setDescription("")
       onClose()
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message)
-      } else {
-        setErrorMessage("Failed to create project")
-      }
-    } finally {
-      setIsSubmitting(false)
+    } catch {
+      addToast({ title: "Creation Failed", message: "Failed to create project.", type: "error" })
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-          <h3 className="text-lg font-bold text-slate-100">Create New Project</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 className="text-base font-bold text-slate-900">Create New Project</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+            className="text-xs font-bold text-slate-400 hover:text-slate-600"
           >
             ✕
           </button>
         </div>
 
-        {errorMessage && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
-            {errorMessage}
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="proj-name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-              Project Name
+            <label htmlFor="create-proj-name" className="block text-xs font-bold text-slate-700 mb-1">
+              Project Name <span className="text-rose-500">*</span>
             </label>
             <input
-              id="proj-name"
+              id="create-proj-name"
               type="text"
-              {...register("name")}
-              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              placeholder="e.g., E-Commerce Redesign"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Q4 Website Redesign SaaS"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-medium text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:outline-none transition"
             />
-            {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="proj-desc" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+            <label htmlFor="create-proj-desc" className="block text-xs font-bold text-slate-700 mb-1">
               Description
             </label>
             <textarea
-              id="proj-desc"
+              id="create-proj-desc"
               rows={3}
-              {...register("description")}
-              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              placeholder="Brief project goals and details..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Provide context or operational scope for this project..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-medium text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:outline-none transition"
             />
           </div>
 
-          <div>
-            <label htmlFor="proj-status" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-              Status
-            </label>
-            <select
-              id="proj-status"
-              {...register("status")}
-              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
-            >
-              <option value="PLANNING">PLANNING</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="COMPLETED">COMPLETED</option>
-              <option value="ARCHIVED">ARCHIVED</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+              disabled={isLoading || !name.trim()}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 shadow-sm shadow-blue-600/20"
             >
-              {isSubmitting ? "Creating..." : "Create Project"}
+              {isLoading ? "Creating..." : "Save Project"}
             </button>
           </div>
         </form>

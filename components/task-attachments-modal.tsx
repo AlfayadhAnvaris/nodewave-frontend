@@ -1,9 +1,24 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { FileText, X } from "lucide-react"
+import { useEffect, useState } from "react"
 import { api } from "../lib/api"
-import type { TaskAttachment } from "../types/attachment"
+import { formatDate } from "../lib/formatters"
+import { useToastStore } from "../stores/toast.store"
 import type { Task } from "../types/task"
+
+interface AttachmentItem {
+  id: string
+  task_id: string
+  uploaded_by: string
+  file_name: string
+  file_url: string
+  created_at: string
+  uploader: {
+    name: string
+    email: string
+  }
+}
 
 interface TaskAttachmentsModalProps {
   task: Task | null
@@ -12,166 +27,150 @@ interface TaskAttachmentsModalProps {
 }
 
 export function TaskAttachmentsModal({ task, isOpen, onClose }: TaskAttachmentsModalProps) {
-  const [attachments, setAttachments] = useState<TaskAttachment[]>([])
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([])
   const [fileName, setFileName] = useState("")
   const [fileUrl, setFileUrl] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const fetchAttachments = useCallback(async () => {
-    if (!task) return
-    setIsLoading(true)
-    setError(null)
-    try {
-      const res = await api.get<TaskAttachment[]>(`/tasks/${task.id}/attachments`)
-      setAttachments(res.data)
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error ||
-            "Failed to fetch attachments"
-          : "Failed to fetch attachments"
-      setError(msg)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [task])
+  const { addToast } = useToastStore()
 
   useEffect(() => {
     if (isOpen && task) {
-      fetchAttachments()
-      setFileName("")
-      setFileUrl("")
+      setIsLoading(true)
+      setError(null)
+      api
+        .get<AttachmentItem[]>(`/tasks/${task.id}/attachments`)
+        .then((res) => setAttachments(res.data))
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : "Failed to load attachments"
+          setError(msg)
+        })
+        .finally(() => setIsLoading(false))
     }
-  }, [isOpen, task, fetchAttachments])
+  }, [isOpen, task])
+
+  if (!isOpen || !task) return null
 
   const handleAddAttachment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!task || !fileName || !fileUrl) return
-    setIsSubmitting(true)
-    setError(null)
+    if (!fileName.trim() || !fileUrl.trim()) return
+
     try {
+      setIsUploading(true)
+      setError(null)
       await api.post(`/tasks/${task.id}/attachments`, {
-        fileName,
-        fileUrl,
+        file_name: fileName.trim(),
+        file_url: fileUrl.trim(),
       })
+      addToast({ title: "Attachment Added", message: `File "${fileName}" attached successfully.`, type: "success" })
       setFileName("")
       setFileUrl("")
-      await fetchAttachments()
+      const res = await api.get<AttachmentItem[]>(`/tasks/${task.id}/attachments`)
+      setAttachments(res.data)
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error ||
-            "Failed to add attachment"
-          : "Failed to add attachment"
+      const msg = err instanceof Error ? err.message : "Failed to upload attachment"
       setError(msg)
+      addToast({ title: "Upload Failed", message: msg, type: "error" })
     } finally {
-      setIsSubmitting(false)
+      setIsUploading(false)
     }
   }
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!window.confirm("Soft delete this attachment?")) return
     try {
+      setError(null)
       await api.delete(`/tasks/attachments/${attachmentId}`)
-      await fetchAttachments()
+      addToast({ title: "Attachment Deleted", message: "Attachment soft deleted.", type: "info" })
+      setAttachments(attachments.filter((a) => a.id !== attachmentId))
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { error?: string } } }).response?.data?.error ||
-            "Failed to delete attachment"
-          : "Failed to delete attachment"
+      const msg = err instanceof Error ? err.message : "Failed to delete attachment"
       setError(msg)
+      addToast({ title: "Delete Failed", message: msg, type: "error" })
     }
   }
 
-  if (!isOpen || !task) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-100">Task Attachments</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Task: <span className="text-indigo-400 font-semibold">{task.title}</span>
-            </p>
+            <h2 className="text-base font-bold text-slate-900">Task Attachments</h2>
+            <p className="text-xs font-medium text-slate-500">File attachments for "{task.title}"</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+            className="text-xs font-bold text-slate-400 hover:text-slate-600 transition"
+            aria-label="Close modal"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleAddAttachment} className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
-          <h3 className="text-xs font-bold text-slate-200">Add New Attachment</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <form onSubmit={handleAddAttachment} className="space-y-3 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200/80">
+          <h3 className="text-xs font-bold text-slate-700">Attach New File</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               type="text"
-              placeholder="File Name (e.g., design_mockup.png)"
+              required
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
-              required
-              className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder="File Title (e.g. Q3 Receipt)"
+              className="rounded-xl border border-slate-200 bg-white p-2 text-xs font-medium text-slate-900 focus:border-blue-600 focus:outline-none"
             />
             <input
-              type="text"
-              placeholder="File URL (e.g., https://...)"
+              type="url"
+              required
               value={fileUrl}
               onChange={(e) => setFileUrl(e.target.value)}
-              required
-              className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              placeholder="File URL (https://...)"
+              className="rounded-xl border border-slate-200 bg-white p-2 text-xs font-medium text-slate-900 focus:border-blue-600 focus:outline-none"
             />
           </div>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 transition"
-          >
-            {isSubmitting ? "Uploading..." : "+ Attach File"}
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isUploading || !fileName.trim() || !fileUrl.trim()}
+              className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {isUploading ? "Attaching..." : "+ Attach File"}
+            </button>
+          </div>
         </form>
 
         {isLoading ? (
-          <div className="flex h-32 items-center justify-center">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          </div>
+          <div className="text-xs font-semibold text-slate-400 py-6 text-center">Loading attachments...</div>
         ) : attachments.length === 0 ? (
-          <div className="text-center py-6 text-xs text-slate-400">
-            No attachments added to this task yet.
-          </div>
+          <div className="text-xs font-medium text-slate-400 py-6 text-center">No attachments added to this task yet.</div>
         ) : (
-          <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+          <div className="max-h-60 overflow-y-auto space-y-2.5 pr-1">
             {attachments.map((att) => (
               <div
                 key={att.id}
-                className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-950 transition"
+                className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 transition"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-bold">
-                    📄
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 text-xs font-bold shrink-0">
+                    <FileText className="w-4 h-4 text-blue-600" />
                   </div>
                   <div>
                     <a
                       href={att.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-semibold text-indigo-400 hover:underline"
+                      className="text-xs font-bold text-blue-600 hover:underline"
                     >
                       {att.file_name}
                     </a>
-                    <p className="text-[10px] text-slate-400">
-                      Uploaded by {att.uploader.name} on {new Date(att.created_at).toLocaleDateString()}
+                    <p className="text-[10px] font-semibold text-slate-400">
+                      Uploaded by {att.uploader.name} on {formatDate(att.created_at)}
                     </p>
                   </div>
                 </div>
@@ -179,7 +178,7 @@ export function TaskAttachmentsModal({ task, isOpen, onClose }: TaskAttachmentsM
                 <button
                   type="button"
                   onClick={() => handleDeleteAttachment(att.id)}
-                  className="text-xs text-red-400 hover:text-red-300 font-medium px-2 py-1 border border-red-500/20 rounded"
+                  className="text-[10px] font-bold text-rose-600 hover:underline"
                 >
                   Delete
                 </button>
@@ -188,11 +187,11 @@ export function TaskAttachmentsModal({ task, isOpen, onClose }: TaskAttachmentsM
           </div>
         )}
 
-        <div className="flex justify-end pt-3 border-t border-slate-800">
+        <div className="flex justify-end pt-2 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Close
           </button>

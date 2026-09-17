@@ -12,6 +12,7 @@ interface AuthState {
   register: (data: RegisterFormData) => Promise<void>
   logout: () => Promise<void>
   initAuth: () => Promise<void>
+  updateProfile: (data: Partial<User>) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -68,5 +69,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.removeItem("user")
       set({ user: null, token: null, isAuthenticated: false, isLoading: false })
     }
+  },
+
+  updateProfile: async (data: Partial<User>) => {
+    set((state) => {
+      if (!state.user) return state
+      const updatedUser = { ...state.user, ...data }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(updatedUser))
+      }
+      return { user: updatedUser }
+    })
   },
 }))

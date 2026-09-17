@@ -1,139 +1,121 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useCallback, useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useEffect, useState } from "react"
 import { api } from "../lib/api"
-import { type AddMemberFormData, addMemberSchema } from "../schemas/project.schema"
 import { useProjectStore } from "../stores/project.store"
-import type { User } from "../types/auth"
+import { useToastStore } from "../stores/toast.store"
 
-interface Props {
+interface CompanyUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  department: string
+}
+
+interface AddMemberModalProps {
   projectId: string
   isOpen: boolean
   onClose: () => void
 }
 
-export function AddMemberModal({ projectId, isOpen, onClose }: Props) {
-  const { addMember } = useProjectStore()
-  const [companyUsers, setCompanyUsers] = useState<User[]>([])
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-  } = useForm<AddMemberFormData>({
-    resolver: zodResolver(addMemberSchema),
-  })
-
-  const fetchUsers = useCallback(async () => {
-    try {
-      const res = await api.get<User[]>("/auth/company-users")
-      setCompanyUsers(res.data)
-    } catch (_err) {
-      setCompanyUsers([])
-    }
-  }, [])
+export function AddMemberModal({ projectId, isOpen, onClose }: AddMemberModalProps) {
+  const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>([])
+  const [selectedUserId, setSelectedUserId] = useState("")
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+  const { addMember, isLoading, error } = useProjectStore()
+  const { addToast } = useToastStore()
 
   useEffect(() => {
     if (isOpen) {
-      fetchUsers()
+      setIsLoadingUsers(true)
+      api
+        .get<CompanyUser[]>("/auth/company-users")
+        .then((res) => {
+          setCompanyUsers(res.data)
+          if (res.data.length > 0) {
+            setSelectedUserId(res.data[0].id)
+          }
+        })
+        .catch(() => {
+          addToast({ title: "Fetch Error", message: "Failed to load company users.", type: "error" })
+        })
+        .finally(() => setIsLoadingUsers(false))
     }
-  }, [isOpen, fetchUsers])
+  }, [isOpen, addToast])
 
   if (!isOpen) return null
 
-  const onSubmit = async (data: AddMemberFormData) => {
-    setIsSubmitting(true)
-    setErrorMessage(null)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedUserId) return
+
     try {
-      await addMember(projectId, data.userId)
-      reset()
+      await addMember(projectId, selectedUserId)
+      addToast({ title: "Member Added", message: "User added to project team successfully.", type: "success" })
       onClose()
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message)
-      } else {
-        setErrorMessage("Failed to add member")
-      }
-    } finally {
-      setIsSubmitting(false)
+    } catch {
+      addToast({ title: "Failed to Add Member", message: "User could not be added.", type: "error" })
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-          <h3 className="text-lg font-bold text-slate-100">Add Project Member</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 className="text-base font-bold text-slate-900">Add Team Member</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+            className="text-xs font-bold text-slate-400 hover:text-slate-600"
           >
             ✕
           </button>
         </div>
 
-        {errorMessage && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
-            {errorMessage}
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
-          {companyUsers.length > 0 && (
-            <div>
-              <label htmlFor="company-users-select" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                Select Company User
-              </label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="select-user-id" className="block text-xs font-bold text-slate-700 mb-1">
+              Select Company User
+            </label>
+            {isLoadingUsers ? (
+              <div className="p-3 text-xs font-semibold text-slate-400">Loading company users...</div>
+            ) : (
               <select
-                id="company-users-select"
-                onChange={(e) => setValue("userId", e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                id="select-user-id"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-bold text-slate-700 focus:border-blue-600 focus:outline-none"
               >
-                <option value="">-- Choose User --</option>
                 {companyUsers.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} ({u.role} - {u.department})
+                    {u.name} — {u.email} ({u.role} • {u.department})
                   </option>
                 ))}
               </select>
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="member-user-id" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-              User ID (UUID)
-            </label>
-            <input
-              id="member-user-id"
-              type="text"
-              {...register("userId")}
-              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              placeholder="Paste user UUID or select above..."
-            />
-            {errors.userId && <p className="mt-1 text-xs text-red-400">{errors.userId.message}</p>}
+            )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+              disabled={isLoading || !selectedUserId}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 shadow-sm shadow-blue-600/20"
             >
-              {isSubmitting ? "Adding..." : "Add Member"}
+              {isLoading ? "Adding..." : "Add to Team"}
             </button>
           </div>
         </form>

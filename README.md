@@ -1,14 +1,17 @@
-# NodeWave Fullstack Assessment - Frontend
+# 🌊 NodeWave Frontend
 
-Frontend web application built with Next.js 16, React 19, TypeScript, Tailwind CSS 4, and Biome.
+Next.js 16 App Router frontend for the NodeWave Workspace & Project Management platform.
 
-## Getting Started
+## Features
+- **Ultra-Minimalist Dashboard**: 3-Tab layout (`Overview`, `Team Workload`, `Analytics`) + Slide-over Activity Feed Drawer.
+- **Kanban Board**: Drag & Drop status updates, Priority SLA badges (`URGENT`, `HIGH`, `MEDIUM`, `LOW`), Task Audit Logs, Attachments, and Task Dependencies.
+- **User Management (`/users`)**: Searchable directory, role filters, invite modal.
+- **Profile Settings (`/profile`)**: Account details & security password change.
+- **Persistent Notifications**: Zustand + `localStorage` synchronized Notification Center.
+- **CSV Export**: Browser-based performance report & task CSV downloader.
 
-1. Install dependencies:
-   bun install
-
-2. Configure environment variables:
-   cp .env.example .env.local
-
-3. Run development server:
-   bun run dev
+## Quick Start
+```bash
+bun dev
+```
+Runs the development server on `http://localhost:3001`.

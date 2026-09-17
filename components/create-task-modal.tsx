@@ -1,116 +1,115 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { type CreateTaskFormData, createTaskSchema } from "../schemas/task.schema"
 import { useTaskStore } from "../stores/task.store"
+import { useToastStore } from "../stores/toast.store"
+import type { Department } from "../types/auth"
 import type { ProjectMember } from "../types/project"
 
-interface Props {
+interface CreateTaskModalProps {
   projectId: string
   members: ProjectMember[]
   isOpen: boolean
   onClose: () => void
 }
 
-export function CreateTaskModal({ projectId, members, isOpen, onClose }: Props) {
-  const { createTask } = useTaskStore()
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CreateTaskFormData>({
-    resolver: zodResolver(createTaskSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      department: "FRONTEND",
-      clientVisible: false,
-    },
-  })
+export function CreateTaskModal({ projectId, members, isOpen, onClose }: CreateTaskModalProps) {
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [department, setDepartment] = useState<Department>("FRONTEND")
+  const [priority, setPriority] = useState<"URGENT" | "HIGH" | "MEDIUM" | "LOW">("MEDIUM")
+  const [assigneeId, setAssigneeId] = useState("")
+  const [clientVisible, setClientVisible] = useState(false)
+  const { createTask, isLoading, error } = useTaskStore()
+  const { addToast } = useToastStore()
 
   if (!isOpen) return null
 
-  const onSubmit = async (data: CreateTaskFormData) => {
-    setIsSubmitting(true)
-    setErrorMessage(null)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) return
+
     try {
-      await createTask(projectId, data)
-      reset()
+      await createTask(projectId, {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        department,
+        assigneeId: assigneeId || undefined,
+        clientVisible,
+        priority,
+      } as any)
+      addToast({ title: "Task Created", message: `Task "${title}" was created successfully.`, type: "success" })
+      setTitle("")
+      setDescription("")
+      setAssigneeId("")
+      setPriority("MEDIUM")
+      setClientVisible(false)
       onClose()
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message)
-      } else {
-        setErrorMessage("Failed to create task")
-      }
-    } finally {
-      setIsSubmitting(false)
+    } catch {
+      addToast({ title: "Task Creation Failed", message: "Failed to create task.", type: "error" })
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-          <h3 className="text-lg font-bold text-slate-100">Create New Task</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 className="text-base font-bold text-slate-900">Create New Task</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+            className="text-xs font-bold text-slate-400 hover:text-slate-600"
           >
             ✕
           </button>
         </div>
 
-        {errorMessage && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
-            {errorMessage}
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="task-title" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-              Task Title
+            <label htmlFor="task-title-input" className="block text-xs font-bold text-slate-700 mb-1">
+              Task Title <span className="text-rose-500">*</span>
             </label>
             <input
-              id="task-title"
+              id="task-title-input"
               type="text"
-              {...register("title")}
-              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              placeholder="e.g., Implement Auth Middleware"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Audit Q3 Performance Statements"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-medium text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:outline-none transition"
             />
-            {errors.title && <p className="mt-1 text-xs text-red-400">{errors.title.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="task-desc" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+            <label htmlFor="task-desc-input" className="block text-xs font-bold text-slate-700 mb-1">
               Description
             </label>
             <textarea
-              id="task-desc"
+              id="task-desc-input"
               rows={3}
-              {...register("description")}
-              className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-              placeholder="Task details and scope..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Detailed task description..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-medium text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white focus:outline-none transition"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-2.5">
             <div>
-              <label htmlFor="task-dept" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+              <label htmlFor="task-dept-input" className="block text-xs font-bold text-slate-700 mb-1">
                 Department
               </label>
               <select
-                id="task-dept"
-                {...register("department")}
-                className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                id="task-dept-input"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value as Department)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-bold text-slate-700 focus:border-blue-600 focus:outline-none"
               >
                 <option value="PRODUCT">PRODUCT</option>
                 <option value="UI_UX">UI_UX</option>
@@ -121,17 +120,35 @@ export function CreateTaskModal({ projectId, members, isOpen, onClose }: Props) 
             </div>
 
             <div>
-              <label htmlFor="task-assignee" className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+              <label htmlFor="task-priority-input" className="block text-xs font-bold text-slate-700 mb-1">
+                Priority SLA
+              </label>
+              <select
+                id="task-priority-input"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as any)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-bold text-slate-700 focus:border-blue-600 focus:outline-none"
+              >
+                <option value="URGENT">🔴 URGENT</option>
+                <option value="HIGH">🟠 HIGH</option>
+                <option value="MEDIUM">🔵 MEDIUM</option>
+                <option value="LOW">⚪ LOW</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="task-assignee-input" className="block text-xs font-bold text-slate-700 mb-1">
                 Assignee
               </label>
               <select
-                id="task-assignee"
-                {...register("assigneeId")}
-                className="mt-1 block w-full rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                id="task-assignee-input"
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 text-xs font-bold text-slate-700 focus:border-blue-600 focus:outline-none"
               >
                 <option value="">Unassigned</option>
                 {members.map((m) => (
-                  <option key={m.user.id} value={m.user.id}>
+                  <option key={m.id} value={m.user_id}>
                     {m.user.name} ({m.user.department})
                   </option>
                 ))}
@@ -139,32 +156,33 @@ export function CreateTaskModal({ projectId, members, isOpen, onClose }: Props) 
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-2 pt-1">
             <input
-              id="task-client-visible"
+              id="client_visible"
               type="checkbox"
-              {...register("clientVisible")}
-              className="h-4 w-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+              checked={clientVisible}
+              onChange={(e) => setClientVisible(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
-            <label htmlFor="task-client-visible" className="text-xs font-medium text-slate-300">
-              Visible to Client Guest
+            <label htmlFor="client_visible" className="text-xs font-semibold text-slate-700 cursor-pointer">
+              Visible to Client Portal
             </label>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+              disabled={isLoading || !title.trim()}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 shadow-sm shadow-blue-600/20"
             >
-              {isSubmitting ? "Creating..." : "Create Task"}
+              {isLoading ? "Saving..." : "Save Task"}
             </button>
           </div>
         </form>
